@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data: https:" />
+    <title>跨电脑同步</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="app">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">⇄</div>
+          <div>
+            <div class="brand-title">跨电脑同步</div>
+            <div class="brand-sub">多仓库 · 多软件</div>
+          </div>
+        </div>
+
+        <nav class="nav">
+          <button class="nav-item active" data-view="sync">
+            <span class="nav-icon">↕</span><span>同步</span>
+          </button>
+          <button class="nav-item" data-view="repos">
+            <span class="nav-icon">☁</span><span>仓库</span>
+            <span class="nav-badge" id="repo-count">0</span>
+          </button>
+          <button class="nav-item" data-view="account">
+            <span class="nav-icon">◇</span><span>账号</span>
+          </button>
+          <button class="nav-item" data-view="options">
+            <span class="nav-icon">⚙</span><span>选项</span>
+          </button>
+        </nav>
+
+        <div class="sidebar-foot">
+          <div class="machine" id="machine-label">本机</div>
+          <div class="machine-sub" id="machine-sub">读取中…</div>
+        </div>
+      </aside>
+
+      <main class="main">
+        <!-- ══════════ 同步 ══════════ -->
+        <section class="view active" id="view-sync">
+          <header class="view-head">
+            <h1>要同步什么</h1>
+            <p class="muted" id="sync-subtitle">
+              按软件自己的层级组织：工作区 / 项目 → 对话。
+            </p>
+          </header>
+
+          <div class="tabs" id="source-tabs"></div>
+
+          <div class="tab-toolbar" id="tab-toolbar">
+            <div class="tab-toolbar-left">
+              <button class="btn ghost sm" data-self="all">全选</button>
+              <button class="btn ghost sm" data-self="none">全不选</button>
+              <span class="toolbar-hint" id="tab-hint"></span>
+            </div>
+            <button class="btn ghost sm" id="refresh">重新扫描</button>
+          </div>
+
+          <div id="sources" class="sources">
+            <div class="loading">正在扫描本机…</div>
+          </div>
+
+          <div class="actions">
+            <div class="actions-left">
+              <button class="btn primary" id="act-upload"><span class="btn-icon">↑</span>上传到 GitHub</button>
+              <button class="btn" id="act-download"><span class="btn-icon">↓</span>从 GitHub 下载</button>
+            </div>
+            <div class="actions-right">
+              <label for="repo-target" class="muted sm">传到</label>
+              <select id="repo-target" class="select"></select>
+            </div>
+          </div>
+
+          <div class="result" id="result" hidden>
+            <div class="result-head">
+              <span class="result-title" id="result-title">结果</span>
+              <button class="btn ghost xs" id="result-close">收起</button>
+            </div>
+            <ul class="result-list" id="result-list"></ul>
+          </div>
+        </section>
+
+        <!-- ══════════ 仓库 ══════════ -->
+        <section class="view" id="view-repos">
+          <header class="view-head">
+            <h1>仓库</h1>
+            <p class="muted">一个软件可以有多个仓库。同步时在「同步」页选要传到哪个。</p>
+          </header>
+
+          <div class="tabs" id="repo-tabs"></div>
+
+          <div class="repo-tab-bar">
+            <span class="toolbar-hint" id="repo-tab-hint"></span>
+            <div class="row">
+              <span class="card-status" id="repo-freshness"></span>
+              <button class="btn ghost sm" id="scan-remote">刷新</button>
+              <button class="btn ghost sm" id="stamp-all" title="给本机已登记的仓库补写标识文件、标签和描述前缀">补写标识</button>
+              <button class="btn ghost sm" id="adopt-repo">加入已有仓库</button>
+              <button class="btn sm" id="add-repo-tab">＋ 给这个软件新建仓库</button>
+            </div>
+          </div>
+
+          <div id="repo-list" class="repo-list">
+            <div class="loading">正在读取…</div>
+          </div>
+        </section>
+
+        <!-- ══════════ 远端内容（独立页面） ══════════ -->
+        <section class="view" id="view-browser">
+          <header class="view-head row-head">
+            <div style="min-width: 0">
+              <h1 id="browser-title">远端内容</h1>
+              <p class="muted sm" id="browser-subtitle">GitHub 上真实存在的内容，按软件自己的层级展示。</p>
+            </div>
+            <div class="row">
+              <span class="card-status" id="browser-status">读取中</span>
+              <button class="btn ghost sm" id="browser-back">← 返回仓库</button>
+            </div>
+          </header>
+
+          <div class="browser-toolbar">
+            <input id="browser-search" type="text" placeholder="搜索…" />
+            <button class="btn sm" id="browser-reload">刷新</button>
+          </div>
+
+          <div class="browser-stats" id="browser-stats"></div>
+          <div class="remote-tree" id="remote-tree"></div>
+
+          <!-- 单文件对比 -->
+          <div class="card" id="diff-panel" hidden>
+            <div class="card-head">
+              <div style="min-width: 0">
+                <h2 id="diff-title">对比</h2>
+                <p class="muted sm" id="diff-subtitle"></p>
+              </div>
+              <div class="card-status" id="diff-status">—</div>
+            </div>
+            <div class="card-body">
+              <div class="row" style="margin-bottom: 12px">
+                <button class="btn sm" id="diff-take-remote">用远端覆盖本地</button>
+                <button class="btn sm" id="diff-push-local">把本地推上去</button>
+                <button class="btn danger sm" id="diff-delete">删除远端</button>
+                <button class="btn ghost sm" id="diff-close">关闭</button>
+              </div>
+              <div class="diff-nav" id="diff-nav"></div>
+              <div class="diff-view" id="diff-view"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ══════════ 账号 ══════════ -->
+        <section class="view" id="view-account">
+          <header class="view-head">
+            <h1>账号</h1>
+            <p class="muted">同步通过你自己的 GitHub 仓库进行，不经过任何第三方服务。</p>
+          </header>
+
+          <div class="card">
+            <div class="card-head">
+              <div>
+                <h2>GitHub</h2>
+                <p class="muted sm">浏览器里登录 ≠ 命令行有权限。这里需要一个有 <code>repo</code> 权限的令牌。</p>
+              </div>
+              <div class="card-status" id="auth-status">未连接</div>
+            </div>
+
+            <div class="card-body" id="auth-body">
+              <div class="row">
+                <button class="btn sm" id="open-token-page">① 打开 GitHub 创建令牌</button>
+                <button class="btn ghost sm" id="token-help">怎么创建？</button>
+              </div>
+              <div class="field">
+                <label for="token-input">粘贴令牌</label>
+                <div class="row">
+                  <input id="token-input" type="password" placeholder="ghp_… 或 github_pat_…" autocomplete="off" />
+                  <button class="btn primary sm" id="verify-token">验证并保存</button>
+                </div>
+                <div class="hint" id="token-hint"></div>
+              </div>
+            </div>
+
+            <div class="card-body" id="auth-signed" hidden>
+              <div class="account">
+                <div class="avatar" id="account-avatar"></div>
+                <div>
+                  <div class="account-name" id="account-name">—</div>
+                  <div class="muted sm" id="account-scopes"></div>
+                </div>
+              </div>
+              <div class="row gap">
+                <button class="btn ghost sm" id="sign-out">断开连接</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <div>
+                <h2>网络通道</h2>
+                <p class="muted sm">GitHub 在某些网络下需要代理。点一下自动找出能用的那条。</p>
+              </div>
+              <div class="card-status" id="net-status">未检测</div>
+            </div>
+            <div class="card-body">
+              <div class="row">
+                <button class="btn sm" id="probe-network">自动检测</button>
+                <span class="muted sm" id="net-detail"></span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ══════════ 选项 ══════════ -->
+        <section class="view" id="view-options">
+          <header class="view-head">
+            <h1>选项</h1>
+            <p class="muted">每个软件只需要配一个「工作区根目录」，具体项目路径由它自动推导。</p>
+          </header>
+
+          <div class="card">
+            <div class="card-head">
+              <div>
+                <h2>目录</h2>
+                <p class="muted sm">
+                  <strong>工作区根目录</strong>是项目所在的父目录——换机时只改这一个，
+                  克隆下来的内容会按它还原到对应位置。
+                </p>
+              </div>
+            </div>
+            <div class="card-body">
+              <div id="paths" class="paths"></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <div>
+                <h2>追加软件</h2>
+                <p class="muted sm">Codex、Claude Code 或任何把数据放在目录里的工具。</p>
+              </div>
+            </div>
+            <div class="card-body">
+              <div class="row">
+                <select id="preset-select" class="select"></select>
+                <button class="btn sm" id="add-custom">选择目录并添加</button>
+              </div>
+              <div class="hint" id="custom-hint"></div>
+              <div id="custom-list" class="custom-list"></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <div>
+                <h2>诊断</h2>
+                <p class="muted sm">出问题时把这段贴出来就能定位。</p>
+              </div>
+              <button class="btn ghost sm" id="copy-diag">复制</button>
+            </div>
+            <div class="card-body">
+              <pre class="diag" id="diag">读取中…</pre>
+              <div class="row gap">
+                <button class="btn ghost sm" id="open-state">打开数据目录</button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div class="toast" id="toast" hidden></div>
+
+    <!-- 新建 / 编辑仓库的弹窗 -->
+    <div class="modal-overlay" id="modal" hidden>
+      <div class="modal">
+        <div class="modal-head">
+          <div style="min-width: 0">
+            <h2 id="modal-title">新建仓库</h2>
+            <p class="muted sm" id="modal-subtitle"></p>
+          </div>
+          <button class="btn ghost xs" id="modal-close">✕</button>
+        </div>
+        <div class="modal-body" id="modal-body"></div>
+        <div class="modal-foot">
+          <div class="hint" id="modal-hint"></div>
+          <div class="row">
+            <button class="btn ghost" id="modal-cancel">取消</button>
+            <button class="btn primary" id="modal-save">保存</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 确认框（不用浏览器原生 confirm，风格统一） -->
+    <div class="modal-overlay" id="confirm-modal" hidden>
+      <div class="modal confirm-modal">
+        <div class="modal-head">
+          <div style="min-width: 0">
+            <h2 id="confirm-title">确认</h2>
+            <p class="muted sm" id="confirm-message"></p>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <div></div>
+          <div class="row">
+            <button class="btn ghost" id="confirm-cancel">取消</button>
+            <button class="btn primary" id="confirm-ok">确定</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="busy-overlay" id="busy" hidden>
+      <div class="busy-card">
+        <div class="spinner"></div>
+        <div class="busy-title" id="busy-title">正在同步…</div>
+        <div class="busy-detail" id="busy-detail"></div>
+        <div class="progress"><div class="progress-bar" id="busy-bar"></div></div>
+        <div class="busy-actions"><button class="btn ghost xs" id="busy-hide">在后台继续</button></div>
+      </div>
+    </div>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
