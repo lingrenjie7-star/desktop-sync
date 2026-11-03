@@ -1,0 +1,44 @@
+{
+  "name": "dsh-dntb",
+  "displayName": "跨电脑同步",
+  "version": "1.0.1",
+  "description": "在两台电脑之间接续 DSH 与 WorkBuddy 的工作：逐项勾选工作区/对话，传到你自己的私有 GitHub 仓库。入口在左侧边栏。",
+  "type": "module",
+  "license": "MIT",
+  "keywords": [
+    "dsh-plugin",
+    "deepseek-harness",
+    "sync",
+    "cross-device",
+    "github"
+  ],
+  "main": "lib/index.js",
+  "exports": {
+    ".": {
+      "default": "./lib/index.js"
+    },
+    "./client": "./lib/client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-slots",
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-locale"
+      ],
+      "platform": "web"
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": ">=4.0.1 <5.0.0 || >=4.0.2 <5.0.0"
+  }
+}
