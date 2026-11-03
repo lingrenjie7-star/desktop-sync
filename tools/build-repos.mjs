@@ -30,8 +30,49 @@ function copyDir(from, to) {
   return n;
 }
 
+/**
+ * 彻底清空目录再重建。
+ *
+ * Windows 上 rmSync 常因 .git 里的只读文件失败（EPERM），
+ * 所以先递归去掉只读位，再删；还不行就再试一轮。
+ */
 function fresh(dir) {
-  fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 300 });
+  if (fs.existsSync(dir)) {
+    const clearReadonly = (d) => {
+      let entries;
+      try {
+        entries = fs.readdirSync(d, { withFileTypes: true });
+      } catch {
+        return;
+      }
+      for (const e of entries) {
+        const full = path.join(d, e.name);
+        try {
+          fs.chmodSync(full, 0o777);
+        } catch {}
+        if (e.isDirectory()) clearReadonly(full);
+      }
+    };
+    try {
+      fs.chmodSync(dir, 0o777);
+    } catch {}
+    clearReadonly(dir);
+
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 300 });
+        break;
+      } catch (error) {
+        if (attempt === 3) {
+          throw new Error(
+            `删不掉 ${dir}：${error.message}\n` +
+              '可能有程序正在使用它（编辑器、资源管理器预览）。关掉后重试。',
+          );
+        }
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 400);
+      }
+    }
+  }
   fs.mkdirSync(dir, { recursive: true });
 }
 
