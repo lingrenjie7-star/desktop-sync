@@ -247,6 +247,30 @@ function main() {
   fs.mkdirSync(path.join(OUT, 'assets'), { recursive: true });
   fs.copyFileSync(path.join(SRC_PLUGIN, 'icon.svg'), path.join(OUT, 'assets', 'icon.svg'));
 
+  /**
+   * distribution.json —— WorkBuddy 内置扩展目录里 8 个扩展全部带这个文件。
+   * 它声明扩展的权限、进程策略和启用状态。
+   * 放内置目录（resources/app.asar.unpacked/resources/extensions/）时需要有它。
+   */
+  const manifestForDist = JSON.parse(fs.readFileSync(path.join(SRC_PLUGIN, 'extension.json'), 'utf8'));
+  const distribution = {
+    extensionId: manifestForDist.id,
+    version: manifestForDist.version,
+    kind: 'user',
+    grantedPermissions: ['*'],
+    processPolicy: {
+      server: 'fork',
+      renderer: 'mf',
+    },
+    status: 'active',
+    resident: true,
+  };
+  fs.writeFileSync(
+    path.join(OUT, 'distribution.json'),
+    JSON.stringify(distribution, null, 2) + '\n',
+    'utf8',
+  );
+
   // UI 半边：把共享面板内联进占位符（与 DSH 插件同一份）
   const remoteSource = fs.readFileSync(path.join(SRC_PLUGIN, 'remoteEntry.js'), 'utf8');
   const panelSource = fs.readFileSync(path.join(SRC_SHARED, 'panel.js'), 'utf8');
