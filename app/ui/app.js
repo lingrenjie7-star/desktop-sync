@@ -2268,13 +2268,35 @@ function renderPaths() {
   for (const source of state.sources) {
     const row = el('div', 'path-row');
 
+    // 数据目录不在默认位置时 detect 会判「没安装」。这里照样列出来，
+    // 并明确标出「未检测到」，否则用户不知道该来这儿改路径。
+    const detected = source.installed !== false;
+
     const head = el('div', 'path-head');
     head.appendChild(el('span', 'path-icon', source.icon ?? '▣'));
     head.appendChild(el('span', 'path-label', source.label));
     if (source.tier?.containerLabel && !source.generic) {
       head.appendChild(el('span', 'pill', source.tier.containerLabel));
     }
+    if (!detected) {
+      const warn = el('span', 'pill warn', '未检测到');
+      if (source.detail) warn.title = source.detail;
+      head.appendChild(warn);
+    }
     row.appendChild(head);
+
+    if (!detected) {
+      const home = config.softwareHome?.[source.id] ?? '';
+      row.appendChild(
+        el(
+          'div',
+          'hint',
+          `没在默认位置找到 ${source.label} 的数据目录`
+            + (home ? `（当前配置：${home}）` : '')
+            + '。如果它装在别处，用下面「数据目录」选一下真实位置即可。',
+        ),
+      );
+    }
 
     // 工作区根目录（结构化软件才有）
     if (!source.generic) {
